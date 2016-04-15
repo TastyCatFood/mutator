@@ -1,6 +1,6 @@
 # mutator
-A helper tool for pre-compile/transform time refactoring.
-A potential alternative for Macro or inline function when desperate.
+A dart language helper tool for pre-compile/transform time refactoring.
+A potential alternative for Macro or inline function in desperate times.
 
 ##Status: Alpha
 
@@ -146,7 +146,7 @@ into `d.on(o).set('hi',()=>print('hi'));`
         print(m.mutate_t(file_path,code:code));
     }
 ## Features and bugs
-Please file feature requests and bugs at the [issue tracker][tracker].
+Please file feature requests and bugs at the  https://github.com/TastyCatFood/mutator/issues.
 
 ## Limitations
 ### Usage example2 fails in the following cases.
@@ -164,7 +164,7 @@ e.g.
             f().nextInt(7);
         }
 
- + Type information within conditionals are ignored.
++ Type information within conditionals are ignored.
  e.g.
 
         f(e){
