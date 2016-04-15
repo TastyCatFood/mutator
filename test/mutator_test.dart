@@ -14,6 +14,7 @@ void main() {
     instance_creation_test();
     alias_test();
     aliased_type_detection_test();
+  as_expression_with_alias_extraction_test();
   });
 }
 /// only modifies an MethodInvocation
@@ -98,6 +99,40 @@ alias_test(){
       "main() {int m = 5<9?9:5; print(m);}");
   });
 }
+as_expression_with_alias_extraction_test(){
+  String path = append_to_project_dir(
+      '/test/mutator_targets/'
+      'mutator_as_expression_'
+          'with_alias_test_target.dart');
+  String klass_name = 'B';
+  String pattern = '[\\w_0-9]+\\.on\\([\\w_0-9_]\\)\\.[\\w_0-9]';
+  String extraction_result;
+  String replacer(AstNode n){
+    extraction_result = n.toString();
+    return extraction_result;
+  }
+  test('type detction test: class definition in an '
+      'aliased import.',(){
+    var m = new Mutator<AssignmentExpression>(
+        klass_name ,pattern , replacer ,alias_name: 'imp' );
+    m.mutate_t(path);
+    expect(extraction_result,'e.on(t).greetings = \'hi\'');
+  });
+  test('type detction test: alias_name option '
+      'set.',(){
+    var m = new Mutator<AssignmentExpression>(
+        klass_name ,pattern , replacer );
+    m.mutate_t(path);
+    expect(extraction_result,'e.on(t).greetings = \'hi\'');
+  });
+  test('type detction test: alias_name set to a wrong name',(){
+    extraction_result = '';
+    var m = new Mutator<AssignmentExpression>(
+        klass_name ,pattern , replacer,alias_name: 'im' );
+    m.mutate_t(path);
+    expect(extraction_result,'');
+  });
+}
 instance_creation_test(){
     String klass_name = 'RegExp';
     String pattern = '\\.hasMatch\\(\'[\\w_0-9]+\'\\)';
@@ -109,11 +144,11 @@ instance_creation_test(){
       }
     }
     """;
-    extractor(e){
+    replacer(e){
       return 'true';
     }
     var m = new Mutator<MethodInvocation>(
-        klass_name, pattern, extractor);
+        klass_name, pattern, replacer);
     test('dummy',(){
       expect(
           m.mutate_t('',code: src),
@@ -124,9 +159,11 @@ instance_creation_test(){
 }
 
 /// path must not contain `/` at the head position.
-append_to_project_dir(path,[base_dir = null]){
+append_to_project_dir(String path,[base_dir = null]){
 // Fetching the project home dir
 //  var cd = Path.current;
+  if(path.indexOf('/') == 0)
+    path = path.substring(1);
 
 //  Changing the current directory
 //  Directory original_dir = Directory.current;

@@ -4,27 +4,25 @@ import 'package:analyzer/analyzer.dart';
 import 'dart:io' show Platform;
 //although deprecated, StringToken class requires this
 import 'package:analyzer/src/generated/scanner.dart';
+import 'package:analyzer/src/generated/ast.dart';
 
 part './parts_resolver.dart';
 part './custom_resolver_functions.dart';
 /// Resolver takes PatsResolver to deal
 /// with the cases where definitions are
-/// in part file.
+/// in a part file.
 ///
 class Resolver<T> {
   DepResolver _pr;
 
   Resolver(this._pr) {}
 
-  /// Takes class name identifier, a
-  /// variable identifier, alias.
+  /// Takes a class name, a variable or an alias.
   ///
   /// Returns the most likely guess on the
   /// type of the given node.
   ///
-  /// Sets different fields of TypeInfo
-  /// depending to the type of the given
-  /// node.
+  /// Does not set all the fields of TypeInfo.
   ///
   /// Case: alias
   /// Sets alias_name and sets type_source
@@ -42,11 +40,10 @@ class Resolver<T> {
   /// query_source.
   ///
   /// When shallow_search is set to true,
-  /// searches only the top level of
-  /// the file.
+  /// searches only the top level scope.
   ///
   /// When the search scope is given, searches
-  /// only the top level of the scope.
+  /// only the top level of the given scope.
   TypeInfo get_type_info(SimpleIdentifier node,
       {DepResolver search_target: null,
       DepResolver query_source:null,
@@ -65,8 +62,8 @@ class Resolver<T> {
 
     // Handling the case where the node is a class name
     // identifier defined in the current file.
-    // A ClassDeclaration in part file may be hidden
-    // by an import alias, so search part files
+    // Beware a ClassDeclaration in a part file may
+    // be hidden by an import alias.
     TypeInfo info = get_class_declaration_of(
         node.toString(),
         search_target: search_target
@@ -90,7 +87,7 @@ class Resolver<T> {
     }
 
     //node is not a class name identifier.
-    //Assuming node is a variable identifier now.
+    //Assuming node represents a variable now.
     List definitions =
       guess_effective_definition_of(
           node,search_target,query_source,
@@ -109,7 +106,7 @@ class Resolver<T> {
         tf.type_declaration = tf.definition_source.ast;
         return tf;
     }
-    // The most likely guess, maybe d of Dynamism d;
+    // Getting the most likely guess;
     tf.definition = g.definition;
 
     _handle_declaration(VariableDeclaration d){
@@ -139,7 +136,7 @@ class Resolver<T> {
           rv,search_target,query_source);
       tf..definition_depth_from_query =
           t.definition_depth_from_query
-        ..definition = t.definition
+        ..definition = a
         ..definition_source = t.definition_source
         ..type_name = t.type_name;
       return tf;
@@ -151,16 +148,18 @@ class Resolver<T> {
     if (g.definition is AssignmentExpression) {
       // Checking if the type is statically
       // defined in in FormalParameter or
-      // VariableDeclaration./
+      // VariableDeclaration.
       if(definitions.length > 1){
-        var second = definitions[1].definition;
+        TypeInfo g2 = definitions[1];
 
-        if(second is FormalParameter){
-          var r = _handle_formal_parameter(second);
+        if(g2.definition is FormalParameter){
+          var r = _handle_formal_parameter(g2);
           if(r != null) return r;
         }
-        if(second is VariableDeclaration){
-          var r = _handle_declaration(second);
+        if(g2.definition is VariableDeclaration &&
+            g2.definition_depth_from_query ==
+            g.definition_depth_from_query){
+          var r = _handle_declaration(g2.definition);
           if(r != null) return r;
         }
       }
@@ -173,10 +172,10 @@ class Resolver<T> {
     return throw 'unknown type ${g.runtimeType} '
         'value: ${g.definition}';
   }
-
-  ///Takes either simple identifier or String
+  ///Returns null if no alias that matches n is found.
   TypeInfo get_alias_match(
-      n,{DepResolver search_target:null}){
+      AstNode n,
+      {DepResolver search_target:null}){
     search_target ??= _pr;
     String identifier = n.toString();
     int depth = 0;
@@ -189,7 +188,7 @@ class Resolver<T> {
       if(identifier == pair[1]){
         var ti = new TypeInfo()
             ..alias_name = identifier
-            ..query_source = n
+            ..query_node = n
             ..definition_depth_from_query = depth
             ..definition_source = pair[0]
             ..definition = pair[0]?.ast;
@@ -222,16 +221,17 @@ class Resolver<T> {
     return r;
   }
 
-  /// Returns [type_name, alias], [type_name,null] or null
-  /// if no alias, the second element is null.
+  /// Returns [type_name, alias],
+  /// [type_name,null] or null.
+  ///
   /// The declaration must be in the
   /// local library represented by _pr.
   ///
   /// sets only definition_source,
   /// query_source, type_name.
   ///
-  /// The declaration part of `Dynamism d;` is
-  /// only `d`.
+  /// A declaration could be a single SimpleIdentifier;
+  /// type information is part of VariableDeclarationList.
   TypeInfo declaration_to_type_info(
       VariableDeclaration d,
       DepResolver search_target,
@@ -271,6 +271,9 @@ class Resolver<T> {
     TypeInfo t = new TypeInfo()
       ..query_source = query_source
       ..definition_source = search_target;
+    while(rv is ParenthesizedExpression)
+      rv = de_parenthesise(rv);
+    if(rv == null) return null;
 
 
     if (rv is Literal) {
@@ -293,11 +296,12 @@ class Resolver<T> {
     }
 
     if (rv is AsExpression) {
-      var l = _as_expression_to_type_alias_pair(rv);
+      var l = as_expression_to_type_alias_pair(rv);
       if(l == null) return null;
-      if(l[1] != null)
+      if(l[1] != null){
         t.definition_source =
             search_target.get_dep_resolver(l[1]);
+      }
       t.type_name= l[0];
       return t;
     }
@@ -309,34 +313,12 @@ class Resolver<T> {
           shallow_search:
             query_source != search_target
       );
-      if (t == null) return null;
       return t;
     }
     if(rv is PrefixedIdentifier){
       var ids = split_identifiers(rv);
-      TypeInfo t = get_right_most_identifier_type(
+      return get_right_most_identifier_type(
           ids,search_target,query_source);
-//      print('get_right_most_identifier_type: ${t.type_name}');
-      throw 'complete this';
-      List<SimpleIdentifier> pis = split_identifiers(rv);
-      var ti = get_type_info(pis.first);
-      if(ti == null) return null;
-      if(ti.alias_name == null){
-        DepResolver st = ti.definition_source;
-        DepResolver qs = ti.query_source;
-        for(var i in pis.sublist(1,pis.length)){
-          t = get_type_info( i,
-              search_target: st,
-              query_source: qs,
-              shallow_search:
-              query_source != search_target
-              );
-          if(t == null ) return null;
-          st = t.definition_source;
-        }
-        if(t == null) return null;
-        return t;
-      }
     }
     //not supported for now.
     if( rv is MethodInvocation) return null;
@@ -344,8 +326,8 @@ class Resolver<T> {
   }
 
 
-  ///finds the variable declaration for the given node
-  ///Takes SimpleIdentifier representing a variable
+  /// Finds the variable declaration for the given node
+  /// Takes a SimpleIdentifier representing a variable
   /// If n is an alias, returns null.
   /// Does not set type_name!
   TypeInfo get_declaration_of(
@@ -441,27 +423,6 @@ class Resolver<T> {
       if(d_declares_n(d)) return r;
     }
 
-    //dealing with import alias
-//    if(n is PrefixedIdentifier){
-//      var pfi = extract_prefixed_identifier(n);
-//      List<SimpleIdentifier> idens =
-//          split_prefixed_identifier(pfi);
-//      var left_pref_name = idens.first;
-//      for(List imp in _pr.imported_alias_pairs){
-//        // skip if alias
-//        if(imp[1] == '') continue;
-//        if(left_pref_name != imp[1]) continue;
-//        //alias matched
-//        var l = pfi.toString().split('.').removeAt(0);
-//        d = extract_scope_wide_declaration_of_n_from(
-//            l.first,imp[0].ast);
-//        if(d != null){
-//          r[0] = d;r[1] = depth;
-//          return r;
-//        }
-//      }
-//    }
-
     // searching imported files
     if(!skip_import)
       for(List pair in search_target.imported_alias_pairs){
@@ -477,17 +438,6 @@ class Resolver<T> {
     return null;//could not find the declaration
   }
   ///Searches up for a FormalParameterList.
-  ///
-  ///Returns a list of:
-  ///
-  ///  1. FormalParameter matching
-  ///  the identifier of n when stringified
-  ///  if such exists. Returns null
-  ///  otherwise.
-  ///
-  ///   2.  The number of scopes moved up
-  ///   from the scope n belongs to.
-  ///
   TypeInfo get_formal_parameter_of(n){
     TypeInfo ti = new TypeInfo()
       ..query_source = _pr
@@ -509,11 +459,9 @@ class Resolver<T> {
   }
 
   /// Returns the closest definition of n.
-  /// sub blocks are ignored.
   ///
-  ///  A guess because it would fail
-  /// if a conditional modifies the value
-  /// of the variable in runtime.
+  /// If a conditional block changes the type of the
+  /// variable at runtime, this method is useless.
   ///
   /// e.g.
   ///
@@ -524,8 +472,8 @@ class Resolver<T> {
   ///     //a is an Object not String
   ///
   /// Does not look into constructor.
-  /// n can be an alias.
   ///
+  /// Can handle an alias.
   List<TypeInfo> guess_effective_definition_of(
       SimpleIdentifier n,
       DepResolver search_target,
@@ -614,10 +562,7 @@ class Resolver<T> {
   /// of the variable denoted by the identifier
   /// in n.
   ///
-  ///  A guess because it would fail
-  /// if a conditional modifies the value
-  /// of the variable on runtime.
-  ///
+  /// Fails in the case below.
   /// e.g.
   ///
   ///     var a = 'hi';
@@ -628,13 +573,7 @@ class Resolver<T> {
   ///     //but this function does not
   ///     //know that.
   ///
-  /// n must be part of library represented by
-  /// _pr.
   /// If n is an alias, returns null.
-  ///
-  /// +  case 1: local to upward search
-  /// +  case 2: scope specific search
-  /// +  case 3: import part file search
   ///
   TypeInfo guess_effective_assignment_to(
       SimpleIdentifier n,
@@ -834,8 +773,7 @@ class Resolver<T> {
       return info;
     }
     if(info == null) return null;
-
-    //alias
+    //if left most is an alias
     if(info.alias_name != null){
       info.type_declaration = info?.type_source?.ast;
       return _process_pfi(identifiers, info);
@@ -856,10 +794,6 @@ class Resolver<T> {
   }
 
 
-  /// Search all files, main, part and imported,
-  /// for the declaration of  the class that has
-  /// an identifier matches the value of name.
-  ///
   /// Only sets type_name,
   /// type_declaration,
   /// type_source
@@ -930,6 +864,9 @@ class Resolver<T> {
 /// alias_name is set and definition
 /// is set to CompilationUnit
 /// of the file the alias represents.
+/// todo alias has been treated as an independent
+/// identifier but it needs to be treated as part
+/// of type.
 class TypeInfo{
   /// The node queried.
   AstNode query_node;
@@ -980,10 +917,9 @@ class TypeInfo{
 /// Returned by guess_effective_definition_of
 ///
 /// Confusing but a Definitions instance may
-/// include `var a;`; strictly speaking a
-/// declaration, but in a general sense, it is
-/// also the definition of the type of a as
-/// dynamic.
+/// hold `a` in `var a;`; strictly speaking `a`
+/// is a declaration, but in a general sense,
+/// the node is also the type definition of `a`.
 ///
 /// Having moved a scope upward to find the
 /// definition/declaration results in a

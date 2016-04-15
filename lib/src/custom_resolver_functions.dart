@@ -1,6 +1,4 @@
 part of custom_resolver;
-///Functions that do not depend on Resolver
-///field values.
 AstNode get_surrounding_block(node){
   if(node == null) return null;
   while(true){
@@ -30,7 +28,6 @@ extract_scope_wide_declaration_of_n_from(
 /// CompilationUnit
 /// ClassDeclaration
 ///
-///as they have a scope.
 bool is_scope(node){
     if(node is Block||
         node is CompilationUnit ||
@@ -77,14 +74,6 @@ List extract_scope_wide_declarations(AstNode node){
 }
 
 
-///Searches for all declarations
-//List<AstNode> extract_all_declarations_in(
-//    AstNode node){
-//  var nodes = [];
-//  var de = new DeclarationExtractor(nodes);
-//  node?.visitChildren(de);
-//  return nodes;
-//}
 
 /// Takes a VariableDeclaration node.
 /// Returns a ConstructorName node or
@@ -93,10 +82,12 @@ List extract_scope_wide_declarations(AstNode node){
 extract_rvalue(n){
   var nodes = flatten_tree(n,1);
   for(var node in nodes){
+    while(node is ParenthesizedExpression)
+      node = de_parenthesise(node);
+
+    if(node is AsExpression) return node;
     if(node is Literal) return node;
-    if(node is TypeName){
-      return node;
-    }
+    if(node is TypeName) return node;
     if(node is InstanceCreationExpression)
       for(var e in node.childEntities)
         if(e is ConstructorName) return e;
@@ -140,7 +131,6 @@ extract_assignments_to_n_from(
 ///
 /// Or null.
 ///
-
 List get_nearest_formal_parameter_list(n){
   var r = new List(2);
   int count = 0;
@@ -248,18 +238,7 @@ VariableDeclaration extract_field_declaration_of(
   }
   return null;
 }
-/// Checks if the invocation/assignment/access is
-/// being performed on a class member or an alias.
-///
-/// Returns the node `A.b.c` in `A.b.c.hi();` .
-/// If no prefixedIdentifier is found,
-/// returns null.
-///
 /// Note: instance or class name is not a prefix.
-///
-/// For a static member and instance member,
-/// what is considered a PrefixedIdentifier differ
-/// from a simple variable:
 ///
 ///     Type: PropertyAccessImpl, body: p.A.d.on(p.e).greetings
 ///     Type: MethodInvocationImpl, body: p.A.d.on(p.e)
@@ -270,7 +249,6 @@ VariableDeclaration extract_field_declaration_of(
 ///     Type: MethodInvocationImpl, body: p.d2.on(p.e)
 ///     Type: PrefixedIdentifierImpl, body: p.d2
 ///
-/// Identifier is basically a function name or variable.
 /// A field variable is considered a property.
 PrefixedIdentifier extract_prefixed_identifier(
       AstNode n) {
@@ -359,10 +337,23 @@ FieldDeclaration get_field_declaration_of(
   }
   return null;
 }
-//[type_name, alias], [type_name, null] or null
-List<String> _as_expression_to_type_alias_pair(AsExpression a){
-  //deal with alias
-  return [a.childEntities.last.toString(),null];
+/// returns [type_name, alias], [type_name, null] or null
+List<String> as_expression_to_type_alias_pair(AsExpression a){
+  //AsExpression to TypeName
+  AstNode type = a.childEntities.last;
+  if(type.childEntities.first is PrefixedIdentifier){
+    type = type.childEntities.first;
+    return [type.childEntities.last.toString(),
+      type.childEntities.first.toString()];
+  }
+  return [type, null];
+}
+AstNode de_parenthesise(ParenthesizedExpression e){
+  for(var t in e.childEntities){
+    if(t is! Token){
+      return t;
+    }
+  }
 }
 
 

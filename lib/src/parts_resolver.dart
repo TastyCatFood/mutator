@@ -3,8 +3,7 @@ part of custom_resolver;
 ///
 ///
 /// As the Resolver class only support local code,
-/// does no look into packages or dart library code
-/// in this version.
+/// does no look into packages or dart library code.
 class DepResolver {
   //matches import directive
   static final RegExp import_m = new RegExp(
@@ -195,8 +194,7 @@ class DepResolver {
     return r;
   }
   /// Returns [[PartResolver, alias],...]
-  /// If no alias, the second element
-  /// is an empty string.
+  /// alias may be null.
   ///
   /// PartResolver is set to null if
   /// alias represents a package or

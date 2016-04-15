@@ -107,7 +107,6 @@ class Mutator<T>{
     List nodes = extractor(dr.ast);
     nodes = filter(nodes);
     //nothing to modify found
-
     if(nodes == null) return dr.toSource();
     //modifying
     for(AstNode e in nodes){
@@ -209,6 +208,7 @@ class Mutator<T>{
 //    show(n);
     if(skip_type_check) {
       if (alias_name == null) return true;
+
       // alias_name is set
       List ids = split_identifiers(
           extract_invocation_base(n));
@@ -219,45 +219,36 @@ class Mutator<T>{
         return true;
       }
       return false;
-    }else{
-      List ids = split_identifiers(
-          extract_invocation_base(n));
-      if(ids != null && ids.isNotEmpty){
-        TypeInfo type = resolver
-            .get_right_most_identifier_type(
-            ids,dr,dr);
-//      print('right most identifier ${ids.last}\'s type for '
-//          'the node $n is ${type?.type_name}');
-        if(type == null) return false;
-        if(alias_name != null){
-          //function call on an alias
-          //e.g. `math.max(5,9)`
-          if(type.alias_name != null){
-            if(ids.first.toString() != alias_name)
-              return false;
-          }
-          //checking if class name is prefixed
-          // by the value of alias_name.
-          //e.g. `new math.Random(5)` and not new random(5);
-          var cn = extract_rvalue(type.definition);
-          if(cn is! ConstructorName)
-            return false;
-
-          List alias_class_name = split_identifiers(cn);
-          if(alias_class_name.length != 2) return false;
-          var t = resolver.get_type_info(alias_class_name.first);
-          if(t.alias_name != alias_name) return false;
-        }
-//      print('$n is invoked on the type ${type.type_name}');
-        return klass_matcher.hasMatch(type.type_name);
-      }
-      // No property access, no prefix.
-      // A function call or an access to a top
-      // level variable without an alias.
-      // skip_type_check should be set to true.
-      return false;
     }
-    throw 'this should not be called';
-    return false;
+
+    List ids = split_identifiers(
+        extract_invocation_base(n));
+    if(ids == null || ids.isEmpty) return false;
+
+    TypeInfo type = resolver
+        .get_right_most_identifier_type(
+        ids,dr,dr);
+//    print('right most identifier ${ids.last}\'s type for '
+//        'the node $n is ${type?.type_name}');
+    if(type == null) return false;
+
+    if(alias_name != null) {
+      //currently TypeInfo does not include alias used.
+      //checking definition instead.
+      var rv = extract_rvalue(type.definition);
+      if (rv is AsExpression) {
+        var l = as_expression_to_type_alias_pair(rv);
+        if (l[1] != alias_name) return false;
+        return true;
+      }
+      List alias_class_name = split_identifiers(rv);
+      if (alias_class_name.length != 2) return false;
+
+      //check if t is really an alias
+      var t = resolver.get_type_info(alias_class_name.first);
+      if (t.alias_name != alias_name) return false;
+//      print('$n is invoked on the type ${type.type_name}');
+    }
+    return klass_matcher.hasMatch(type.type_name);
   }
 }
