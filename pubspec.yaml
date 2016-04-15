@@ -1,0 +1,15 @@
+name: mutator
+description: A helper tool for pre-compile/transform time refactoring. A potential alternative for Macro or inline function when desperate.
+version: 0.0.1
+#author: Tasty Dart <tastydart@gmail.com>
+#homepage: https://github.com/TastyCatFood/mutator
+
+environment:
+  sdk: '>=1.0.0 <2.0.0'
+
+dev_dependencies:
+  test: '>=0.12.0 <0.13.0'
+  mistletoe:
+    path: /home/d/Dropbox/IdeaProjects/mistletoe
+  browser: any
+  barback: any
