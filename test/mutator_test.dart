@@ -4,17 +4,13 @@ import 'dart:io' show Platform, Directory;
 import 'package:test/test.dart';
 import 'dart:math' as math;
 
-//String file_path =
-//  append_to_project_dir(
-//      'test/mutator_targets/'
-//          'mutator_test_target.dart');
 
 void main() {
   group('A group of tests', () {
     instance_creation_test();
     alias_test();
     aliased_type_detection_test();
-  as_expression_with_alias_extraction_test();
+    as_expression_with_alias_test();
   });
 }
 /// only modifies an MethodInvocation
@@ -99,7 +95,7 @@ alias_test(){
       "main() {int m = 5<9?9:5; print(m);}");
   });
 }
-as_expression_with_alias_extraction_test(){
+as_expression_with_alias_test(){
   String path = append_to_project_dir(
       '/test/mutator_targets/'
       'mutator_as_expression_'
@@ -160,12 +156,12 @@ instance_creation_test(){
 
 /// path must not contain `/` at the head position.
 append_to_project_dir(String path,[base_dir = null]){
-// Fetching the project home dir
-//  var cd = Path.current;
   if(path.indexOf('/') == 0)
     path = path.substring(1);
+// To fetch the project home dir
+//  var cd = Path.current;
 
-//  Changing the current directory
+//  To Change the current directory
 //  Directory original_dir = Directory.current;
 //  Directory.current = dirname.toFilePath();
   Path.Context context;

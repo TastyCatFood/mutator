@@ -10,7 +10,7 @@ part './parts_resolver.dart';
 part './custom_resolver_functions.dart';
 /// Resolver takes PatsResolver to deal
 /// with the cases where definitions are
-/// in a part file.
+/// in part files.
 ///
 class Resolver<T> {
   DepResolver _pr;

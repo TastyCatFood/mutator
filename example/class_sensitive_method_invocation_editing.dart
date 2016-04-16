@@ -18,6 +18,24 @@ String src = """
         }
     }
     """;
+/// main should transform the value of src into
+/// the code below and print it:
+///
+///import 'dart:math' as math;
+///
+///main() {
+///  var r = new math.Random(5);
+///  print(88);//Changed
+///  var r2 = new Random();
+///  print(r2.nextInt(600));//Not changed
+///}
+///
+///class Random {
+///  nextInt(int n) {
+///    return n + 5;
+///  }
+///}
+///
 main(){
   int random_num;
   var r = new math.Random(5);

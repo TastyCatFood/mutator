@@ -3,19 +3,18 @@ A dart language helper tool for pre-compile/transform time refactoring.
 A potential alternative for Macro or inline function in desperate times.
 
 ##Status: Alpha
-
-## About this package
+Type detection currently relies on a solution I improvised without
+a proper design or abstraction and it is neither fast or exhaustively
+tested.
 Skip type detection by passing `skip_type_check:true`
-to mutate_t method for safety and speed if possible.
-Mutator's type detection currently relies on a solution I
-improvised without a proper design or abstraction and neither
-fast or sufficiently tested.
+to mutate_t method for safety and speed if possible;see usage
+example1 for more details.
 
 
 ## Usage
 
 A simple usage example:
-Refactoring `math.max(5,9)` into `a function;`.
+Refactoring `math.max(5,9)` into `(){int t = 5;t = t<9?9:t;return t;}();`.
 
     import 'package:mutator/mutator.dart';
     String alias = 'math';
@@ -57,16 +56,14 @@ Refactoring `math.max(5,9)` into `a function;`.
               '${value2.trim()}:${value1.trim()};';
         }
         String s = e.toString();
-        s = s.substring(9,s.length-1);//removing math.max(
+        s = s.substring(9,s.length-1);//removing `math.max(` and `)`
         var l = s.split(',');
 
-        //creating a temporary function
         List f = ['(){int t = ${l[0]};'];
 
         for(String v in l.sublist(1))
           f.add(generate_code_for_getting_larger('t','t',v));
 
-        //closing the function
         f.add('return t;}()');
         return f.join();
       }
@@ -76,46 +73,63 @@ Refactoring `math.max(5,9)` into `a function;`.
     }
 
 
-Refactoring `nextInt calls on Instances of math.Random`
-`r.nextInt(5)` into a random number but leave `r2.nextInt(5)`
-unchanged as r2 is not an instance of math.Random.
+Refactoring `r.nextInt(5)` into a random number. Leaving
+`r2.nextInt(5)` unchanged as r2 is not an instance of math.Random.
 
-    import 'package:mutator/mutator.dart';
+
     import 'dart:math' as math;
+    import 'package:mutator/mutator.dart';
+
     String pattern = '[\\w0-9_]+\\.nextInt\\([0-9]+\\)';
     String klass_name = 'Random';
     String path = '';//dummy path
     String src = """
-    import 'dart:math' as math;
-    main(){
-    var r = new math.Random(5);
-    print(r.nextInt(600));
-    var r2 = new Random();
-    print(r2.nextInt(600));
-    }
-    class Random{
-        nextInt(int n){
-          return n +5;
-        }
-    }
-    """;
-    main(){
-        int random_num;
+        import 'dart:math' as math;
+        main(){
         var r = new math.Random(5);
-        replacer(MethodInvocation e){
-            String s = e.toString();
-            random_num = r.nextInt( int.parse(new RegExp('[0-9]+')
-                    .firstMatch(s).group(0)));
-            return random_num.toString();
+        print(r.nextInt(600));
+        var r2 = new Random();
+        print(r2.nextInt(600));
         }
-        var m = new Mutator<MethodInvocation>(
+        class Random{
+            nextInt(int n){
+              return n +5;
+            }
+        }
+        """;
+    /// main should transform the value of src into
+    /// the code below and print it:
+    ///
+    ///import 'dart:math' as math;
+    ///
+    ///main() {
+    ///  var r = new math.Random(5);
+    ///  print(88);//Changed
+    ///  var r2 = new Random();
+    ///  print(r2.nextInt(600));//Not changed
+    ///}
+    ///
+    ///class Random {
+    ///  nextInt(int n) {
+    ///    return n + 5;
+    ///  }
+    ///}
+    ///
+    main(){
+      int random_num;
+      var r = new math.Random(5);
+      replacer(MethodInvocation e){
+        String s = e.toString();
+        random_num = r.nextInt( int.parse(new RegExp('[0-9]+')
+            .firstMatch(s).group(0)));
+        return random_num.toString();
+      }
+      var m = new Mutator<MethodInvocation>(
           klass_name, pattern, replacer,alias_name: 'math');
-        print(m.mutate_t(path,code:src));
+      print(m.mutate_t(path,code:src));
     }
 
-Refactoring Assignments to an attribute of the instances of Dynamism into `set` method calls.
-`d.on(o).hi = ()=>print('hi');`
-into `d.on(o).set('hi',()=>print('hi'));`
+Refactoring `d.on(o).hi = ()=>print('hi');` into `d.on(o).set('hi',()=>print('hi'));`
 
     import 'package:mutator/mutator.dart';
     String code = """
@@ -149,7 +163,6 @@ into `d.on(o).set('hi',()=>print('hi'));`
 Please file feature requests and bugs at the  https://github.com/TastyCatFood/mutator/issues.
 
 ## Limitations
-### Usage example2 fails in the following cases.
 + No type detection available when the type is not statically defined.
 e.g.
 
@@ -157,15 +170,15 @@ e.g.
 
 
 +  Function's return type is ignored.
- e.g.
+e.g.
 
         math.Random f(){new math.Random(501);}
         main(){
             f().nextInt(7);
         }
 
-+ Type information within conditionals are ignored.
- e.g.
++ Type information within conditional statement are ignored.
+e.g.
 
         f(e){
            if(e is math.Random){
@@ -173,7 +186,7 @@ e.g.
            }
         }
 
-### Type detection fails for variables defined within a package or dart-sdk.
+#### Does not detect the type of variables defined in a file that has been imported as a package or a part of dart-sdk.
 e.g.
 
         import 'package:example_code.dart' as eg;
@@ -181,5 +194,6 @@ e.g.
         // Mutator does not look into the package to find the type of [a].
             print(eg.a);
         }
-Type detection is available if `example_code.dart` is imported relatively such as `import './example_code.dart';` or as a part file.
+
+The type of [a] is available when `example_code.dart` is imported relatively; `import './example_code.dart';` or as a part file.
 
