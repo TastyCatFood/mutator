@@ -1,8 +1,8 @@
 name: mutator
 description: A dart language helper tool for pre-compile/transform time refactoring. A potential alternative to Macro or inline function in desperate times.
 version: 0.0.1
-#author: Tasty Dart <tastydart@gmail.com>
-#homepage: https://github.com/TastyCatFood/mutator
+author: Tasty Dart <tastydart@gmail.com>
+homepage: https://github.com/TastyCatFood/mutator
 
 environment:
   sdk: '>=1.0.0 <2.0.0'
