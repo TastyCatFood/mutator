@@ -9,7 +9,7 @@ export 'package:analyzer/analyzer.dart';
 export 'package:analyzer/src/generated/ast.dart';
 export 'package:analyzer/src/generated/scanner.dart';
 
-///Modifies code
+///Refactors code, see the example folder for usage examples.
 class Mutator<T>{
   String klass_name;
   String pattern;
@@ -34,10 +34,10 @@ class Mutator<T>{
   ///       (){ compute();completer.complete(result);}
   ///      ,...]}
   ///
-  /// mutate calls, pops and adds to completer_pool.
+  /// the method [mutate] calls, pops and adds to completer_pool.
   static Map<String, List<Function>> completer_pool = {};
   /// See the file mutator_example.dart
-  /// in example folder.
+  /// in example folder for usage.
   ///
   ///Takes:
   /// +  class name.
@@ -46,7 +46,7 @@ class Mutator<T>{
   /// +  replacer function.
   /// e.g.
   ///
-  ///     (e){
+  ///     String replacer(AstNode e){
   ///         String s = e.toString();
   ///         List l  = s.split('=');
   ///         var invocation = l.removeAt(0).split('.');
@@ -54,7 +54,6 @@ class Mutator<T>{
   ///         invocation = invocation.join('.') +
   ///             '.set(\'${name}\', ${l.join('=')})';
   ///         return invocation;
-  ///
   ///       }
   ///
   /// Only nodes of type T that match the
@@ -65,13 +64,13 @@ class Mutator<T>{
   /// method, but mutate_t should be
   /// sufficient for most purposes.
   ///
-  /// required_import
+  /// `required_import` option
   /// allows skipping running mutate on files
   /// that do not contain at least one of the
   /// packages.
   /// If not specified, no file is skipped.
   ///
-  /// alias_name should be set to modify
+  /// `alias_name`option should be set to modify
   /// a MethodInvocation of a function defined
   /// in an aliased file:
   /// e.g.
@@ -241,18 +240,19 @@ class Mutator<T>{
     return null;
   }
 
-  /// Checks if n is invoked on the class matching
+  /// Checks if the node n is invoked on a class matching
   /// the klass_matcher.
-  ///
-  /// There is an issue with identifying the base.
-  /// e.g. `c` in the case of `A.b.c.hi()`.
-  /// `A.b.c` is a PropertyAccess.
-  ///
-  /// e.g. `d` in `p.d.hi()`
-  /// `p.d` is a PrefixedIdentifier.
-  ///
-  ///
   bool is_n_invoked_on(AstNode n){
+    /// There is an issue with identifying the base.
+    /// e.g. `c` in the case of `A.b.c.hi()`.
+    /// `A.b.c` is a PropertyAccess.
+    ///
+    /// e.g. `d` in `p.d.hi()`
+    /// `p.d` is a PrefixedIdentifier.
+    ///
+    /// extract_invocation_base is used to circumvent
+    /// the problem, but the method is inefficient and
+    /// ugly.
 //    print('precessing $n');
 //    show(n);
     if(skip_type_check) {
