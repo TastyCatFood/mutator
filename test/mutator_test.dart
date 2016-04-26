@@ -55,8 +55,8 @@ aliased_type_detection_test(){
   }
   var m = new Mutator<MethodInvocation>(
       klass_name, pattern, extractor,alias_name: 'math');
-  test('alias and type detection test', (){
-    expect(m.mutate_t(path,code:src),
+  test('alias and type detection test', ()async{
+    expect(await m.mutate_t(path,code:src),
     "import 'dart:math' as math; "
     "main() {"
         "var r = new math.Random(5); "
@@ -89,8 +89,8 @@ alias_test(){
   }
   var m = new Mutator<MethodInvocation>(
       '', pattern, extractor,alias_name: alias);
-  test('alias test', (){
-  expect(m.mutate_t(path,code:src,skip_type_check:true),
+  test('alias test', ()async{
+  expect(await m.mutate_t(path,code:src,skip_type_check:true),
   "import 'dart:math' as math; "
       "main() {int m = 5<9?9:5; print(m);}");
   });
@@ -108,24 +108,26 @@ as_expression_with_alias_test(){
     return extraction_result;
   }
   test('type detction test: class definition in an '
-      'aliased import.',(){
+      'aliased import.',()async{
     var m = new Mutator<AssignmentExpression>(
         klass_name ,pattern , replacer ,alias_name: 'imp' );
-    m.mutate_t(path);
+    await m.mutate_t(path);
     expect(extraction_result,'e.on(t).greetings = \'hi\'');
   });
   test('type detction test: alias_name option '
-      'set.',(){
+      'set.',
+      ()async{
     var m = new Mutator<AssignmentExpression>(
         klass_name ,pattern , replacer );
-    m.mutate_t(path);
+    await m.mutate_t(path);
     expect(extraction_result,'e.on(t).greetings = \'hi\'');
   });
-  test('type detction test: alias_name set to a wrong name',(){
+  test('type detction test: alias_name set to a wrong name',
+      ()async{
     extraction_result = '';
     var m = new Mutator<AssignmentExpression>(
         klass_name ,pattern , replacer,alias_name: 'im' );
-    m.mutate_t(path);
+    await m.mutate_t(path);
     expect(extraction_result,'');
   });
 }
@@ -143,11 +145,11 @@ instance_creation_test(){
     replacer(e){
       return 'true';
     }
-    var m = new Mutator<MethodInvocation>(
+    var m =  new Mutator<MethodInvocation>(
         klass_name, pattern, replacer);
-    test('dummy',(){
-      expect(
-          m.mutate_t('',code: src),
+    test('dummy',()async{
+      var r = await m.mutate_t('',code: src);
+      expect(r,
           "import 'dart:math' as math; "
               "main() {if (true) {print('yeap');}}"
       );

@@ -6,7 +6,7 @@ import 'dart:io' show Platform;
 import 'package:analyzer/src/generated/scanner.dart';
 import 'package:analyzer/src/generated/ast.dart';
 
-part './parts_resolver.dart';
+part './dep_resolver.dart';
 part './custom_resolver_functions.dart';
 /// Resolver takes PatsResolver to deal
 /// with the cases where definitions are
@@ -153,7 +153,7 @@ class Resolver<T> {
         TypeInfo g2 = definitions[1];
 
         if(g2.definition is FormalParameter){
-          var r = _handle_formal_parameter(g2);
+          var r = _handle_formal_parameter(g2 as FormalParameter);
           if(r != null) return r;
         }
         if(g2.definition is VariableDeclaration &&
@@ -302,7 +302,7 @@ class Resolver<T> {
         t.definition_source =
             search_target.get_dep_resolver(l[1]);
       }
-      t.type_name= l[0];
+      t.type_name= l[0].toString();
       return t;
     }
     //variable

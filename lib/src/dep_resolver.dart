@@ -17,7 +17,7 @@ class DepResolver {
   static final RegExp import_string_m = new RegExp(
       '.*\'([\\w:./]+)(?=\')|.*\"([\\w_/.:]+)(?=\")'
   );
-
+  bool _is_part;
   List<DepResolver> parts = [];
   DepResolver _main;
 
@@ -62,9 +62,12 @@ class DepResolver {
         code,entry_point);
   }
   DepResolver.create_from_file(String path){
+    // todo fix this:
+    // When the given path points to a file in a package,
+    // Path.absolute returns '${project_root}/${path}'.
+    // Which is invalid.
     absolute_path = Path.absolute(path);
     _file_dir = Path.absolute(Path.dirname(path));
-
     ast = parseDartFile(absolute_path,
         suppressErrors: false,parseFunctionBodies: true);
     initialize(path);
@@ -87,15 +90,36 @@ class DepResolver {
 
   initialize(String path) {
     _statements = ast.directives;
-    _process_parts();
-    _process_imports();
-    _cache[path] = this;
+    if(_cache[absolute_path] != null)
+      _main = _cache[absolute_path]?.main;
+    _cache[absolute_path] = this;
+    _is_part_or_main();
+    if(!_is_part){
+      _process_parts();
+      _process_imports();
+    }
+  }
+  /// Resolving variables in part file
+  /// does not work till main is processed.
+  _is_part_or_main(){
+    for(var e in _statements){
+      if(e is PartOfDirective){
+        this._is_part = true;
+        return;
+      }
+    }
+    this._is_part = false;
   }
   void _process_parts() {
     List paths = _extract_all_part_file_paths();
     if(paths.length == 0) return;
     for (var path in paths) {
-      var pr = new DepResolver(path);
+      var pr = _cache[path];
+      if(pr == null){
+        pr = new DepResolver(path);
+      }
+      // pr exists if part file is passed to mutate before this file.
+      // part file is completed after the instantiation of this object.
       pr.main = this;
       parts.add(pr);
       _cache[path] = pr;
@@ -170,8 +194,9 @@ class DepResolver {
   }
 
   is_imported(String package_name){
-    if(isPart())
+    if(_is_part){
       import_strings = _main.import_strings;
+    }
     if(_is_relative_import(package_name)){
       package_name = to_abs_path(package_name);
     }
@@ -180,7 +205,12 @@ class DepResolver {
     }
     return false;
   }
-  bool isPart()=> _main != null;
+  /// Regular transformer may may serve
+  /// part file before main file. Use
+  /// aggregate transformer to make sure
+  /// main always gets processed before
+  /// parts.
+  bool isPart()=>_is_part;
 
   //todo support alias and package imports
   /// Returns [[CompilationUnit, alias],...]

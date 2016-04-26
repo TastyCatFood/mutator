@@ -1,4 +1,5 @@
 import 'package:mutator/mutator.dart';
+import 'dart:async';
 
 String alias = 'math';
 String pattern = 'math\\.max\\([0-9,\\w\\s_]+\\)';
@@ -26,7 +27,7 @@ String src = """
 ///       return t;
 ///     }();
 ///}
-main(){
+main() async{
   replacer(MethodInvocation e){
     String generate_code_for_getting_larger(
         String variable_name,
@@ -50,7 +51,7 @@ main(){
     f.add('return t;}()');
     return f.join();
   }
-  var m = new Mutator<MethodInvocation>(
+  var m = await new Mutator<MethodInvocation>(
       '', pattern, replacer,alias_name: alias);
-  print(m.mutate_t(file_path,code:src,skip_type_check:true));
+  print(await m.mutate_t(file_path,code:src,skip_type_check:true));
 }

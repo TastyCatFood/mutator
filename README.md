@@ -24,7 +24,7 @@ Refactoring `math.max(5,9)` into `(){int t = 5;t = t<9?9:t;return t;}();`.
 
     String src = """
           import 'dart:math' as math;
-          main(){
+          main() async{
             int m = math.max(5,94,8,3,5,7,4);
           }
           """;
@@ -33,7 +33,7 @@ Refactoring `math.max(5,9)` into `(){int t = 5;t = t<9?9:t;return t;}();`.
     ///src into the code below.
     ///
     ///   import 'dart:math' as math;
-    ///   main() {
+    ///   main() async{
     ///     int m = () {
     ///       int t = 5;
     ///       t = t < 94 ? 94 : t;
@@ -45,7 +45,7 @@ Refactoring `math.max(5,9)` into `(){int t = 5;t = t<9?9:t;return t;}();`.
     ///       return t;
     ///     }();
     ///}
-    main(){
+    main() async{
       replacer(MethodInvocation e){
         String generate_code_for_getting_larger(
             String variable_name,
@@ -69,7 +69,7 @@ Refactoring `math.max(5,9)` into `(){int t = 5;t = t<9?9:t;return t;}();`.
       }
       var m = new Mutator<MethodInvocation>(
           '', pattern, replacer,alias_name: alias);
-      print(m.mutate_t(file_path,code:src,skip_type_check:true));
+      print(await m.mutate_t(file_path,code:src,skip_type_check:true));
     }
 
 
@@ -85,7 +85,7 @@ Refactoring `r.nextInt(5)` into a random number. Leaving
     String path = '';//dummy path
     String src = """
         import 'dart:math' as math;
-        main(){
+        main() async{
         var r = new math.Random(5);
         print(r.nextInt(600));
         var r2 = new Random();
@@ -102,7 +102,7 @@ Refactoring `r.nextInt(5)` into a random number. Leaving
     ///
     ///import 'dart:math' as math;
     ///
-    ///main() {
+    ///main() async{
     ///  var r = new math.Random(5);
     ///  print(88);//Changed
     ///  var r2 = new Random();
@@ -115,7 +115,7 @@ Refactoring `r.nextInt(5)` into a random number. Leaving
     ///  }
     ///}
     ///
-    main(){
+    main() async{
       int random_num;
       var r = new math.Random(5);
       replacer(MethodInvocation e){
@@ -126,7 +126,7 @@ Refactoring `r.nextInt(5)` into a random number. Leaving
       }
       var m = new Mutator<MethodInvocation>(
           klass_name, pattern, replacer,alias_name: 'math');
-      print(m.mutate_t(path,code:src));
+      print(await m.mutate_t(path,code:src));
     }
 
 Refactoring `d.on(o).hi = ()=>print('hi');` into `d.on(o).set('hi',()=>print('hi'));`
@@ -135,7 +135,7 @@ Refactoring `d.on(o).hi = ()=>print('hi');` into `d.on(o).set('hi',()=>print('hi
     String code = """
     import 'package:mistletoe';
     var d = new Dynamism(expert:true);
-    main(){
+    main() async{
         var o = new Object();
         d.on(o).hi = ()=>print('hi');
     }
@@ -145,7 +145,7 @@ Refactoring `d.on(o).hi = ()=>print('hi');` into `d.on(o).set('hi',()=>print('hi
         '^[a-z.A-Z_0-9]+\\.on\\'
         '([a-z.A-Z_0-9]+\\)\\.[a-z.A-Z_0-9]+';
     String file_path = '';
-    main(){
+    main() async{
         replacer(e){
             String s = e.toString();
             List l  = s.split('=');
@@ -157,7 +157,7 @@ Refactoring `d.on(o).hi = ()=>print('hi');` into `d.on(o).set('hi',()=>print('hi
         }
         var m = new Mutator<AssignmentExpression>(
           klass_name, pattern, replacer);
-        print(m.mutate_t(file_path,code:code));
+        print(await m.mutate_t(file_path,code:code));
     }
 ## Features and bugs
 Please file feature requests and bugs at the  https://github.com/TastyCatFood/mutator/issues.

@@ -39,7 +39,7 @@ main() async {
         '.set(\'${name}\', ${l.join('=').trim()})';
     return invocation;
   });
-  String r = m.mutate_t(file_path);
+  String r = await m.mutate_t(file_path);
 
 
   m = new Mutator<PropertyAccess>(klass_name,pattern,
@@ -51,7 +51,7 @@ main() async {
           '.get(\'${property_name.trim()}\')';
       return invocation;
     });
-  r = m.mutate_t(file_path,code:r);
+  r = await m.mutate_t(file_path,code:r);
 
 
   m = new Mutator<MethodInvocation>(klass_name,pattern,
@@ -74,7 +74,7 @@ main() async {
           return '${on_call}.invoke'
               '(\'${method_name}\',[${params}])';
   });
-  r = m.mutate_t(file_path,code:r);
+  r = await m.mutate_t(file_path,code:r);
   print(r);
   return;
 }

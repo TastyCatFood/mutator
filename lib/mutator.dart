@@ -1,6 +1,7 @@
 import 'package:analyzer/analyzer.dart';
 import 'package:analyzer/src/generated/ast.dart';
 import './src/custom_resolver.dart';
+import 'dart:async';
 // deprecated, but StringToken class needs scanner.
 import 'package:analyzer/src/generated/scanner.dart';
 
@@ -20,6 +21,21 @@ class Mutator<T>{
   DepResolver dr; //set in mutator method
   bool skip_type_check = false;
   String alias_name = null;
+
+  /// Transformer does not always pass a library main first.
+  /// When part files are passed to mutator before library main
+  /// the execution has to wait till library main is passed to
+  /// mutator.
+  /// When the library main is processed, mutator checks if
+  /// its parts are queued in completer_pool and if that is
+  /// the case, completes them.
+  ///
+  ///     {absolute_file_path:[
+  ///       (){ compute();completer.complete(result);}
+  ///      ,...]}
+  ///
+  /// mutate calls, pops and adds to completer_pool.
+  static Map<String, List<Function>> completer_pool = {};
   /// See the file mutator_example.dart
   /// in example folder.
   ///
@@ -83,31 +99,65 @@ class Mutator<T>{
   /// nodes of the type T in the given
   /// CompilationUnit.
   /// todo test with the path set to an empty string.
-  String mutate(
+  Future<String> mutate(
       String path,
       Function extractor,
       Function filter,
-      [String code='' ]) {
+      [String code='' ]) async{
     DepResolver dr;
     if(code != ''){
       //todo need some caching solution, this is not working.
       dr = new DepResolver.from_string(path,code);
     }else{
-      dr ??= new DepResolver(path);
+      dr = new DepResolver(path);
     }
+    // is the file is a part file and library main not loaded
+    // wait the execution.
+    if(dr.isPart()){
+      if(dr.main == null){
+        var c = new Completer();
+        completer_pool[dr.absolute_path] ??= [];
+        List p = completer_pool[dr.absolute_path];
+        Function f(){
+          String r = do_mutate(extractor,filter,dr);
+          c.complete(r);
+        };
+        p.add(f);
+        return c.future;
+      }else{
+        return do_mutate(extractor,filter,dr);
+      }
+    }else{
+      //complete part files queue
+      for(DepResolver d in dr.parts){
+        if( completer_pool[d.absolute_path] != null){
+          List l = completer_pool[d.absolute_path];
+          for(int i = 0; i< l.length;++i){
+            l[i].call();
+          }
+          l.clear();
+        }
+      }
+      return do_mutate(extractor,filter,dr);
+    }
+  }
+  String do_mutate(Function extractor, Function filter,DepResolver dr){
     // filtering by packages used,
     // if none specified, this check is
     // skipped.
-    for(String req in included_packages)
-      if(!dr.is_imported(req))
-        return dr.ast.toSource();//no modification
-
+    for(String req in included_packages){
+      if(!dr.is_imported(req)) {
+        return dr.ast.toSource(); //no modification
+      }
+    }
     var r = new Resolver<T>(dr);
     resolver = r;
     List nodes = extractor(dr.ast);
     nodes = filter(nodes);
     //nothing to modify found
-    if(nodes == null) return dr.toSource();
+    if(nodes == null){
+      return dr.toSource();
+    }
     //modifying
     for(AstNode e in nodes){
       String s = replacer(e);
@@ -118,10 +168,9 @@ class Mutator<T>{
     }
     return dr.toSource();
   }
-  String mutate_t( String path,
+  Future<String> mutate_t( String path,
       {String code : '',
-      skip_type_check:false}
-      ) {
+      skip_type_check:false} ) async {
     this.skip_type_check = skip_type_check;
     List<T> node_extractor(CompilationUnit ast){
       List nodes = resolver.extract_type_T( ast);

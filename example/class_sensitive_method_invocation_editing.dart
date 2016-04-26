@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:async';
 import 'package:mutator/mutator.dart';
 
 String pattern = '[\\w0-9_]+\\.nextInt\\([0-9]+\\)';
@@ -36,7 +37,7 @@ String src = """
 ///  }
 ///}
 ///
-main(){
+main() async{
   int random_num;
   var r = new math.Random(5);
   replacer(MethodInvocation e){
@@ -45,7 +46,7 @@ main(){
         .firstMatch(s).group(0)));
     return random_num.toString();
   }
-  var m = new Mutator<MethodInvocation>(
+  var m = await new Mutator<MethodInvocation>(
       klass_name, pattern, replacer,alias_name: 'math');
-  print(m.mutate_t(path,code:src));
+  print(await m.mutate_t(path,code:src));
 }
