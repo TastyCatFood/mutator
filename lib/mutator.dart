@@ -102,13 +102,21 @@ class Mutator<T>{
       String path,
       Function extractor,
       Function filter,
-      [String code='' ]) async{
+      [String code='', int timeout_in_seconds=60 ]) async{
     DepResolver dr;
     if(code != ''){
       //todo need some caching solution, this is not working.
       dr = new DepResolver.from_string(path,code);
     }else{
       dr = new DepResolver(path);
+    }
+    on_time_out(){
+      throw new TimeoutException(
+          'mutator failed to refactor file:${dr.absolute_path}'
+              ' due to ${timeout_in_seconds} seconds timeout. '
+              'Either the file is too large '
+              'or the library main file for the part file not given in '
+              'time.');
     }
     // is the file is a part file and library main not loaded
     // wait the execution.
@@ -122,7 +130,9 @@ class Mutator<T>{
           c.complete(r);
         };
         p.add(f);
-        return c.future;
+        return c.future.timeout(
+            new Duration( seconds: timeout_in_seconds),
+            onTimeout: on_time_out );
       }else{
         return do_mutate(extractor,filter,dr);
       }
@@ -169,14 +179,16 @@ class Mutator<T>{
   }
   Future<String> mutate_t( String path,
       {String code : '',
-      skip_type_check:false} ) async {
+      skip_type_check:false,
+      int time_out_in_seconds:60} ) async {
     this.skip_type_check = skip_type_check;
     List<T> node_extractor(CompilationUnit ast){
       List nodes = resolver.extract_type_T( ast);
       return nodes;
     }
     return mutate(
-        path, node_extractor,default_filter,code);
+        path, node_extractor,default_filter,code,
+        time_out_in_seconds);
   }
   List<AstNode> default_filter(List<AstNode> nodes){
     nodes.removeWhere( (e) =>
